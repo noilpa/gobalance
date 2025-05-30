@@ -1,0 +1,7 @@
+listen: 8080
+strategy: "roundrobin"
+log_level: "info"
+
+backends:
+  - "localhost:9001"
+  - "localhost:9002"

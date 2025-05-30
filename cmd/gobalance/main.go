@@ -1,50 +1,25 @@
 package main
 
 import (
-    "io"
-    "log"
-    "net"
-    "sync/atomic"
+	"log"
+
+	"github.com/noilpa/gobalance/internal/config"
+	"github.com/noilpa/gobalance/internal/server"
 )
 
-var backends = []string{"localhost:9001", "localhost:9002"}
-var counter uint64 = 0
-
 func main() {
-    listener, err := net.Listen("tcp", ":8080")
-    if err != nil {
-        log.Fatalf("Failed to listen: %v", err)
-    }
-    log.Println("Listening on :8080")
+	path := "config/test/config.yml"
+	cfg, err := config.LoadConfig(path)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
 
-    for {
-        clientConn, err := listener.Accept()
-        if err != nil {
-            log.Println("Failed to accept:", err)
-            continue
-        }
+	s, err := server.New(cfg.ListenPort, cfg.Strategy, cfg.Backends)
+	if err != nil {
+		log.Fatalf("failed to create new server: %v", err)
+	}
 
-        backend := selectBackend()
-        go handleConnection(clientConn, backend)
-    }
-}
-
-func selectBackend() string {
-    idx := atomic.AddUint64(&counter, 1)
-    return backends[int(idx-1)%len(backends)]
-}
-
-func handleConnection(clientConn net.Conn, backend string) {
-    defer clientConn.Close()
-
-    backendConn, err := net.Dial("tcp", backend)
-    if err != nil {
-        log.Println("Failed to connect to backend:", err)
-        return
-    }
-    defer backendConn.Close()
-
-    // Проксируем данные в обе стороны
-    go io.Copy(backendConn, clientConn)
-    io.Copy(clientConn, backendConn)
+	if err := s.Start(); err != nil {
+		log.Fatalf("failed to create new server: %v", err)
+	}
 }
